@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Habit Tracker Gamificado</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#090a0f',
+                        cardBg: '#13151c',
+                        accent: '#6366f1'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background-color: #090a0f;
+            color: #f3f4f6;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #090a0f;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #27272a;
+            border-radius: 3px;
+        }
+
+        /* Checkbox customizado */
+        .custom-checkbox {
+            appearance: none;
+            background-color: #1f2029;
+            border: 2px solid #3f3f46;
+            border-radius: 8px;
+            width: 28px;
+            height: 28px;
+            display: grid;
+            place-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .custom-checkbox::before {
+            content: "\f00c";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            color: white;
+            font-size: 14px;
+            transform: scale(0);
+            transition: transform 0.15s ease-in-out;
+        }
+        .custom-checkbox:checked {
+            background-color: #6366f1;
+            border-color: #6366f1;
+        }
+        .custom-checkbox:checked::before {
+            transform: scale(1);
+        }
+
+        /* Transições sanfona para inputs extras */
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s cubic-bezier(0, 1, 0, 1);
+        }
+        .collapsible-content.open {
+            max-height: 500px;
+            transition: max-height 0.3s ease-in-out;
+        }
+
+        /* Efeitos visuais das barras de progresso */
+        .progress-glow {
+            box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+        }
+        .progress-glow-emerald {
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+        }
+
+        /* Animação para brilho dourado */
+        @keyframes goldGlow {
+            0%, 100% { filter: drop-shadow(0 0 4px #d4af37); }
+            50% { filter: drop-shadow(0 0 12px #ffd700); }
+        }
+        .gold-sparkle {
+            animation: goldGlow 2s infinite ease-in-out;
+        }
+
+        /* Estilos especiais de Streak (350 e 365+ dias) */
+        .gradient-350 {
+            background: linear-gradient(135deg, #ffffff 0%, #000000 100%);
+            border: 2px solid #FFCC00 !important;
+        }
+
+        .gradient-365 {
+            background: #000000;
+            border: 2px solid #FFCC00 !important;
+            box-shadow: 0 0 12px rgba(255, 204, 0, 0.5);
+        }
+    </style>
+</head>
+<body class="min-h-screen pb-12 flex flex-col items-center">
+
+    <!-- Wrapper do Conteúdo Mobile -->
+    <div class="w-full max-w-md px-4 py-4 flex flex-col gap-4">
+
+
+        <!-- TÍTULO E SUBTÍTULO LENDÁRIO (Exibido no topo de tudo quando o streak atinge 366+ dias) -->
+        <div id="title-badge-container" class="hidden bg-zinc-900/90 border border-amber-500/40 p-3.5 rounded-2xl flex flex-col gap-1 shadow-2xl backdrop-blur-md">
+            <div class="flex items-center justify-between">
+                <span id="badge-title" class="text-xs font-black text-amber-400 tracking-wide uppercase flex items-center gap-1.5"></span>
+                <span id="badge-year-tag" class="text-[9px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-mono font-extrabold border border-amber-500/30"></span>
+            </div>
+            <p id="badge-subtitle" class="text-[11px] text-zinc-300 italic leading-snug mt-0.5"></p>
+        </div>
+
+        <!-- HEADER COM STREAK / FOGUINHO DINÂMICO -->
+        <header class="flex flex-col gap-3 bg-zinc-900/90 p-4 rounded-2xl border border-zinc-800 shadow-xl">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="font-extrabold text-xl tracking-wide bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                        HABIT TRACKER
+                    </h1>
+                    <p id="current-selected-label" class="text-xs text-zinc-400 font-medium">Carregando data...</p>
+                </div>
+
+                <!-- Card/Badge do Foguinho -->
+                <div id="streak-badge-container" class="flex items-center gap-2.5 px-3.5 py-2 rounded-2xl border transition-all duration-300">
+                    <i id="streak-icon" class="fa-solid fa-fire text-xl"></i>
+                    <div class="flex flex-col text-right">
+                        <span id="streak-count" class="text-base font-extrabold leading-none">0</span>
+                        <span class="text-[9px] uppercase tracking-wider font-extrabold opacity-80">Dias</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- PAINEL DE PONTUAÇÃO -->
+        <section class="bg-zinc-900/90 p-4 rounded-2xl border border-zinc-800 shadow-xl flex flex-col gap-4">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-400 border-b border-zinc-800/80 pb-2 flex items-center gap-2">
+                <i class="fa-solid fa-chart-line text-indigo-400"></i> Progresso de Pontos
+            </h2>
+
+            <!-- Pontos Diários -->
+            <div class="space-y-1.5">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-semibold text-zinc-300">PONTOS DIÁRIOS (Meta: 10)</span>
+                    <span id="daily-score-text" class="text-xs font-extrabold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-md border border-indigo-500/20">0/10</span>
+                </div>
+                <!-- Barra de Progresso Real CSS -->
+                <div class="w-full bg-zinc-950 h-3.5 rounded-full overflow-hidden p-0.5 border border-zinc-800/80">
+                    <div id="daily-progress-bar-inner" class="bg-gradient-to-r from-indigo-600 to-indigo-400 h-full rounded-full transition-all duration-500 progress-glow" style="width: 0%;"></div>
+                </div>
+            </div>
+
+            <!-- Pontos Mensais -->
+            <div class="space-y-1.5">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-semibold text-zinc-300">PONTOS MENSAIS (Meta: 50)</span>
+                    <span id="monthly-score-text" class="text-xs font-extrabold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">0/50</span>
+                </div>
+                <!-- Barra de Progresso Real CSS -->
+                <div class="w-full bg-zinc-950 h-3.5 rounded-full overflow-hidden p-0.5 border border-zinc-800/80">
+                    <div id="monthly-progress-bar-inner" class="bg-gradient-to-r from-emerald-600 to-emerald-400 h-full rounded-full transition-all duration-500 progress-glow-emerald" style="width: 0%;"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ESTATÍSTICAS DOS 4 HÁBITOS NO MÊS ATUAL -->
+        <section class="bg-zinc-900/90 p-4 rounded-2xl border border-zinc-800 shadow-xl space-y-3">
+            <div class="flex justify-between items-center border-b border-zinc-800/80 pb-2">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+                    <i class="fa-solid fa-list-check text-indigo-400"></i> Desempenho no Mês
+                </h2>
+                <span id="days-lived-label" class="text-[10px] text-zinc-400 font-mono bg-zinc-800 px-2 py-0.5 rounded-full border border-zinc-700">--/-- dias</span>
+            </div>
+
+            <!-- Grid com as 4 estatísticas acumuladas -->
+            <div class="grid grid-cols-2 gap-2 text-xs">
+                <!-- Treino -->
+                <div class="bg-zinc-950/70 p-2.5 rounded-xl border border-zinc-800/80 flex items-center gap-2.5">
+                    <div class="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
+                        <i class="fa-solid fa-dumbbell"></i>
+                    </div>
+                    <div>
+                        <div id="stat-treino" class="font-extrabold text-zinc-100 text-sm">0/0</div>
+                        <div class="text-[10px] text-zinc-400 font-medium leading-none">Treino</div>
+                    </div>
+                </div>
+
+                <!-- Leitura -->
+                <div class="bg-zinc-950/70 p-2.5 rounded-xl border border-zinc-800/80 flex items-center gap-2.5">
+                    <div class="w-7 h-7 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
+                        <i class="fa-solid fa-book-open"></i>
+                    </div>
+                    <div>
+                        <div id="stat-leitura" class="font-extrabold text-zinc-100 text-sm">0/0</div>
+                        <div class="text-[10px] text-zinc-400 font-medium leading-none">Leitura</div>
+                    </div>
+                </div>
+
+                <!-- Estudo -->
+                <div class="bg-zinc-950/70 p-2.5 rounded-xl border border-zinc-800/80 flex items-center gap-2.5">
+                    <div class="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                        <i class="fa-solid fa-graduation-cap"></i>
+                    </div>
+                    <div>
+                        <div id="stat-estudo" class="font-extrabold text-zinc-100 text-sm">0/0</div>
+                        <div class="text-[10px] text-zinc-400 font-medium leading-none">Estudo</div>
+                    </div>
+                </div>
+
+                <!-- Não Vício -->
+                <div class="bg-zinc-950/70 p-2.5 rounded-xl border border-zinc-800/80 flex items-center gap-2.5">
+                    <div class="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                        <i class="fa-solid fa-shield-halved"></i>
+                    </div>
+                    <div>
+                        <div id="stat-vicio" class="font-extrabold text-zinc-100 text-sm">0/0</div>
+                        <div class="text-[10px] text-zinc-400 font-medium leading-none">Não Vício</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CALENDÁRIO MENSAL -->
+        <section class="bg-zinc-900/90 p-4 rounded-2xl border border-zinc-800 shadow-xl space-y-3">
+            <!-- NAVEGAÇÃO DE MÊS -->
+            <div class="flex justify-between items-center">
+                <button id="prev-month-btn" class="p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 active:scale-95 transition">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                <div id="calendar-month-year" class="text-sm font-bold text-zinc-200 capitalize">
+                    Carregando...
+                </div>
+                <button id="next-month-btn" class="p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 active:scale-95 transition">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
+            </div>
+
+            <!-- LEGENDA DE CORES DAS CÉLULAS DO CALENDÁRIO -->
+            <div class="grid grid-cols-7 gap-1 text-[9px] text-zinc-400 text-center py-1.5 bg-zinc-950/60 rounded-lg border border-zinc-800/50">
+                <div class="flex flex-col items-center gap-1">
+                    <span class="w-2.5 h-2.5 rounded-full bg-black border border-zinc-700"></span>
+                    <span>Futuro</span>
+                </div>
+                <div class="flex flex-col items-center gap-1">
+                    <span class="w-2.5 h-2.5 rounded-full" style="background-color: #2A2A30;"></span>
+                    <span>Sem reg.</span>
+                </div>
+                <div class="flex flex-col items-center gap-1">
+                    <span class="w-2.5 h-2.5 rounded-full bg-red-600"></span>
+                    <span>0 Feitas</span>
+                </div>
+                <div class="flex flex-col items-center gap-1">
+                    <span class="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
+                    <span>1 Feita</span>
+                </div>
+                <div class="flex flex-col items-center gap-1">
+                    <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                    <span>2 Feitas</span>
+                </div>
+                <div class="flex flex-col items-center gap-1">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                    <span>3 Feitas</span>
+                </div>
+                <div class="flex flex-col items-center gap-1">
+                    <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                    <span>4 Feitas</span>
+                </div>
+            </div>
+
+            <!-- DIAS DA SEMANA -->
+            <div class="grid grid-cols-7 gap-1 text-center font-bold text-xs text-zinc-500 py-1">
+                <div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div>
+            </div>
+
+            <!-- GRID DOS DIAS -->
+            <div id="calendar-grid" class="grid grid-cols-7 gap-1.5">
+                <!-- Gerado via JS -->
+            </div>
+        </section>
+
+        <!-- FORMULÁRIO DAS TAREFAS DO DIA -->
+        <section id="tasks-section" class="bg-zinc-900/90 p-4 rounded-2xl border border-zinc-800 shadow-xl space-y-4">
+            <div class="flex justify-between items-center border-b border-zinc-800/80 pb-3">
+                <h2 class="text-sm font-bold text-zinc-200 flex items-center gap-2">
+                    <i class="fa-solid fa-pen-to-square text-indigo-400"></i>
+                    Tarefas: <span id="selected-date-display" class="text-indigo-400 font-extrabold">--/--/----</span>
+                </h2>
+                <span id="future-day-badge" class="hidden text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full border border-zinc-700">
+                    Dia Futuro
+                </span>
+            </div>
+
+            <form id="habits-form" class="space-y-3" onsubmit="event.preventDefault();">
+                
+                <!-- 1. TREINOU? -->
+                <div class="bg-zinc-950/60 p-3.5 rounded-xl border border-zinc-800/80 transition-all">
+                    <div class="flex items-center justify-between">
+                        <label for="check-treino" class="flex items-center gap-3 cursor-pointer font-semibold text-zinc-200 text-sm">
+                            <input type="checkbox" id="check-treino" class="custom-checkbox">
+                            <span class="flex items-center gap-2">
+                                <i class="fa-solid fa-dumbbell text-indigo-400 w-4"></i> Treinou?
+                            </span>
+                        </label>
+                        <span class="text-[10px] text-zinc-500 font-mono">+1m | +1d a cada 2 séries</span>
+                    </div>
+
+                    <div id="extra-treino" class="collapsible-content pt-3 space-y-2">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[11px] text-zinc-400 block mb-1">Séries de 5 flexões</label>
+                                <input type="number" id="num-flexoes" min="0" placeholder="0" class="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label class="text-[11px] text-zinc-400 block mb-1">Séries de 2 barras</label>
+                                <input type="number" id="num-barras" min="0" placeholder="0" class="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-indigo-500">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. LEU? -->
+                <div class="bg-zinc-950/60 p-3.5 rounded-xl border border-zinc-800/80 transition-all">
+                    <div class="flex items-center justify-between">
+                        <label for="check-leitura" class="flex items-center gap-3 cursor-pointer font-semibold text-zinc-200 text-sm">
+                            <input type="checkbox" id="check-leitura" class="custom-checkbox">
+                            <span class="flex items-center gap-2">
+                                <i class="fa-solid fa-book-open text-blue-400 w-4"></i> Leu?
+                            </span>
+                        </label>
+                        <span class="text-[10px] text-zinc-500 font-mono">+1m | +1d a cada 10 pág</span>
+                    </div>
+
+                    <div id="extra-leitura" class="collapsible-content pt-3">
+                        <div>
+                            <label class="text-[11px] text-zinc-400 block mb-1">Quantas páginas lidas?</label>
+                            <input type="number" id="num-paginas" min="0" placeholder="0" class="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-indigo-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. ESTUDOU? -->
+                <div class="bg-zinc-950/60 p-3.5 rounded-xl border border-zinc-800/80 transition-all">
+                    <div class="flex items-center justify-between">
+                        <label for="check-estudo" class="flex items-center gap-3 cursor-pointer font-semibold text-zinc-200 text-sm">
+                            <input type="checkbox" id="check-estudo" class="custom-checkbox">
+                            <span class="flex items-center gap-2">
+                                <i class="fa-solid fa-graduation-cap text-amber-400 w-4"></i> Estudou?
+                            </span>
+                        </label>
+                        <span class="text-[10px] text-zinc-500 font-mono">+1m | +1d a cada 30 min</span>
+                    </div>
+
+                    <div id="extra-estudo" class="collapsible-content pt-3">
+                        <div>
+                            <label class="text-[11px] text-zinc-400 block mb-1">Tempo de estudo (minutos)?</label>
+                            <input type="number" id="num-estudo" min="0" placeholder="0" class="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-indigo-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. NÃO SE VICIOU? -->
+                <div class="bg-zinc-950/60 p-3.5 rounded-xl border border-zinc-800/80 transition-all">
+                    <div class="flex items-center justify-between">
+                        <label for="check-vicio" class="flex items-center gap-3 cursor-pointer font-semibold text-zinc-200 text-sm">
+                            <input type="checkbox" id="check-vicio" class="custom-checkbox">
+                            <span class="flex items-center gap-2">
+                                <i class="fa-solid fa-shield-halved text-emerald-400 w-4"></i> Não se viciou?
+                            </span>
+                        </label>
+                        <span class="text-[10px] text-emerald-400/90 font-mono font-semibold">+1m | +1d</span>
+                    </div>
+                </div>
+
+                <!-- Ações do Dia -->
+                <div class="pt-2 flex flex-col gap-2">
+                    <button type="button" id="btn-zero-tasks" class="w-full bg-red-950/60 hover:bg-red-900/80 text-red-300 border border-red-800/80 font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-xmark text-red-400"></i> Nenhuma tarefa feita hoje (Marcar Vermelho)
+                    </button>
+
+                    <button type="button" id="btn-clear-day" class="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold py-2 rounded-xl text-xs transition border border-zinc-700 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-rotate-left text-zinc-400"></i> Resetar Dia / Remover Registro (Voltar a Cinza)
+                    </button>
+                </div>
+
+            </form>
+        </section>
+
+    </div>
+
+    <!-- MODAL DE SELEÇÃO INICIAL DE DATA / LOG IN -->
+    <div id="initial-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl w-full max-w-sm shadow-2xl space-y-5 text-center">
+            <div class="w-12 h-12 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto border border-indigo-500/20 text-indigo-400 text-2xl">
+                <i class="fa-regular fa-calendar-check"></i>
+            </div>
+
+            <div>
+                <h3 class="text-lg font-bold text-zinc-100">Bem-vindo de volta!</h3>
+                <p class="text-xs text-zinc-400 mt-1">Selecione o dia e o mês atual para acessar o painel.</p>
+            </div>
+
+            <div class="space-y-3 text-left">
+                <div>
+                    <label class="text-xs font-semibold text-zinc-400 mb-1 block">Mês Atual</label>
+                    <select id="modal-select-month" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500">
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-zinc-400 mb-1 block">Dia Atual</label>
+                    <select id="modal-select-day" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500">
+                    </select>
+                </div>
+            </div>
+
+            <button id="modal-confirm-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition active:scale-95 text-sm shadow-lg shadow-indigo-600/30">
+                Acessar Meu Painel
+            </button>
+        </div>
+    </div>
+
+    <script>
+
+        // CONSTANTES DOS MESES
+        const MONTH_NAMES = [
+            'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+            'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+        ];
+
+        let state = {
+            todayKey: '', // YYYY-MM-DD
+            selectedKey: '', // YYYY-MM-DD
+            viewYear: new Date().getFullYear(),
+            viewMonth: new Date().getMonth(),
+            records: {}
+        };
+
+        // REFERÊNCIAS DOM
+        const initialModal = document.getElementById('initial-modal');
+        const modalSelectMonth = document.getElementById('modal-select-month');
+        const modalSelectDay = document.getElementById('modal-select-day');
+        const modalConfirmBtn = document.getElementById('modal-confirm-btn');
+
+        const currentSelectedLabel = document.getElementById('current-selected-label');
+        const streakBadgeContainer = document.getElementById('streak-badge-container');
+        const streakIcon = document.getElementById('streak-icon');
+        const streakCount = document.getElementById('streak-count');
+
+        const titleBadgeContainer = document.getElementById('title-badge-container');
+        const badgeTitle = document.getElementById('badge-title');
+        const badgeYearTag = document.getElementById('badge-year-tag');
+        const badgeSubtitle = document.getElementById('badge-subtitle');
+
+        const dailyScoreText = document.getElementById('daily-score-text');
+        const dailyProgressBarInner = document.getElementById('daily-progress-bar-inner');
+        const monthlyScoreText = document.getElementById('monthly-score-text');
+        const monthlyProgressBarInner = document.getElementById('monthly-progress-bar-inner');
+
+        const daysLivedLabel = document.getElementById('days-lived-label');
+        const statTreino = document.getElementById('stat-treino');
+        const statLeitura = document.getElementById('stat-leitura');
+        const statEstudo = document.getElementById('stat-estudo');
+        const statVicio = document.getElementById('stat-vicio');
+
+        const calendarMonthYear = document.getElementById('calendar-month-year');
+        const calendarGrid = document.getElementById('calendar-grid');
+        const prevMonthBtn = document.getElementById('prev-month-btn');
+        const nextMonthBtn = document.getElementById('next-month-btn');
+
+        const selectedDateDisplay = document.getElementById('selected-date-display');
+        const futureDayBadge = document.getElementById('future-day-badge');
+        const btnZeroTasks = document.getElementById('btn-zero-tasks');
+        const btnClearDay = document.getElementById('btn-clear-day');
+
+        // Checkboxes & Inputs Form
+        const checkTreino = document.getElementById('check-treino');
+        const extraTreino = document.getElementById('extra-treino');
+        const numFlexoes = document.getElementById('num-flexoes');
+        const numBarras = document.getElementById('num-barras');
+
+        const checkLeitura = document.getElementById('check-leitura');
+        const extraLeitura = document.getElementById('extra-leitura');
+        const numPaginas = document.getElementById('num-paginas');
+
+        const checkEstudo = document.getElementById('check-estudo');
+        const extraEstudo = document.getElementById('extra-estudo');
+        const numEstudo = document.getElementById('num-estudo');
+
+        const checkVicio = document.getElementById('check-vicio');
+
+        function loadStorage() {
+            const saved = localStorage.getItem('habit_tracker_data_v4');
+            if (saved) {
+                try {
+                    state.records = JSON.parse(saved);
+                } catch(e) {
+                    console.error("Erro ao carregar dados:", e);
+                }
+            }
+        }
+
+        function saveStorage() {
+            localStorage.setItem('habit_tracker_data_v4', JSON.stringify(state.records));
+        }
+
+        function formatDateKey(year, month, day) {
+            const m = String(month + 1).padStart(2, '0');
+            const d = String(day).padStart(2, '0');
+            return `${year}-${m}-${d}`;
+        }
+
+        function parseDateKey(key) {
+            const parts = key.split('-');
+            return {
+                year: parseInt(parts[0], 10),
+                month: parseInt(parts[1], 10) - 1,
+                day: parseInt(parts[2], 10)
+            };
+        }
+
+        function initApp() {
+            loadStorage();
+            
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth();
+            const currentDay = now.getDate();
+
+            modalSelectMonth.innerHTML = '';
+            MONTH_NAMES.forEach((name, idx) => {
+                const opt = document.createElement('option');
+                opt.value = idx;
+                opt.textContent = name;
+                if (idx === currentMonth) opt.selected = true;
+                modalSelectMonth.appendChild(opt);
+            });
+
+            const updateModalDays = () => {
+                const selMonth = parseInt(modalSelectMonth.value, 10);
+                const daysInMonth = new Date(currentYear, selMonth + 1, 0).getDate();
+                modalSelectDay.innerHTML = '';
+                for (let i = 1; i <= daysInMonth; i++) {
+                    const opt = document.createElement('option');
+                    opt.value = i;
+                    opt.textContent = `Dia ${i}`;
+                    if (i === currentDay && selMonth === currentMonth) opt.selected = true;
+                    modalSelectDay.appendChild(opt);
+                }
+            };
+
+            modalSelectMonth.addEventListener('change', updateModalDays);
+            updateModalDays();
+
+            modalConfirmBtn.addEventListener('click', () => {
+                const selectedMonth = parseInt(modalSelectMonth.value, 10);
+                const selectedDay = parseInt(modalSelectDay.value, 10);
+
+                state.viewYear = currentYear;
+                state.viewMonth = selectedMonth;
+                state.todayKey = formatDateKey(currentYear, selectedMonth, selectedDay);
+                state.selectedKey = state.todayKey;
+
+                initialModal.classList.add('hidden');
+                
+                renderAll();
+            });
+
+            setupEventListeners();
+        }
+
+        function getDayData(key) {
+            return state.records[key] || null;
+        }
+
+        function hasDayRecord(key) {
+            const data = state.records[key];
+            if (!data) return false;
+            return data.isRecorded === true;
+        }
+
+        function getCompletedTasksCount(key) {
+            const data = getDayData(key);
+            if (!data) return 0;
+            let count = 0;
+            if (data.treinou) count++;
+            if (data.leu) count++;
+            if (data.estudou) count++;
+            if (data.viciou) count++;
+            return count;
+        }
+
+
+        // REGRAS DE PONTOS DIÁRIOS
+        function calculateDailyPoints(key) {
+            const data = getDayData(key);
+            if (!data) return 0;
+            let points = 0;
+
+            // 1. Treino: A cada 2 séries no total (flexões + barras) = +1 ponto diário
+            const flex = parseInt(data.flexoes, 10) || 0;
+            const bar = parseInt(data.barras, 10) || 0;
+            const totalSeries = flex + bar;
+            if (totalSeries > 0) {
+                points += Math.floor(totalSeries / 2);
+            } else if (data.treinou) {
+                points += 1;
+            }
+
+            // 2. Leitura: A cada 10 páginas = +1 ponto diário
+            const paginas = parseInt(data.paginas, 10) || 0;
+            if (paginas > 0) {
+                points += Math.floor(paginas / 10);
+            } else if (data.leu) {
+                points += 1;
+            }
+
+            // 3. Estudo: A cada 30 minutos = +1 ponto diário
+            const minEstudo = parseInt(data.estudoMin, 10) || 0;
+            if (minEstudo > 0) {
+                points += Math.floor(minEstudo / 30);
+            } else if (data.estudou) {
+                points += 1;
+            }
+
+            // 4. Não se viciou? = +1 ponto diário
+            if (data.viciou) {
+                points += 1;
+            }
+
+            return points;
+        }
+
+        // REGRAS DE PONTOS MENSAIS
+        function calculateMonthlyPoints(year, month) {
+            let totalMonthlyPoints = 0;
+            const prefix = `${year}-${String(month + 1).padStart(2, '0')}`;
+
+            Object.keys(state.records).forEach(key => {
+                if (key.startsWith(prefix)) {
+                    const data = state.records[key];
+                    if (data && data.isRecorded) {
+                        if (data.treinou) totalMonthlyPoints += 1;
+                        if (data.leu) totalMonthlyPoints += 1;
+                        if (data.estudou) totalMonthlyPoints += 1;
+                        if (data.viciou) totalMonthlyPoints += 1;
+                    }
+                }
+            });
+
+            return totalMonthlyPoints;
+        }
+
+        // CÁLCULO DE STREAK
+        function calculateStreak() {
+            let streak = 0;
+            let current = new Date(parseDateKey(state.todayKey).year, parseDateKey(state.todayKey).month, parseDateKey(state.todayKey).day);
+
+            while (true) {
+                const key = formatDateKey(current.getFullYear(), current.getMonth(), current.getDate());
+                const completed = getCompletedTasksCount(key);
+                
+                if (completed > 0) {
+                    streak++;
+                    current.setDate(current.getDate() - 1);
+                } else {
+                    if (key === state.todayKey) {
+                        current.setDate(current.getDate() - 1);
+                        const prevKey = formatDateKey(current.getFullYear(), current.getMonth(), current.getDate());
+                        if (getCompletedTasksCount(prevKey) === 0) {
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+            }
+            return streak;
+        }
+
+        // CORES E VISUAL DO STREAK (FOGUINHO)
+        function applyStreakStyle(days) {
+            streakBadgeContainer.className = "flex items-center gap-2.5 px-3.5 py-2 rounded-2xl border transition-all duration-300";
+            streakBadgeContainer.style = "";
+            streakIcon.className = "fa-solid fa-fire text-xl";
+            streakIcon.style = "";
+            streakCount.className = "text-base font-extrabold leading-none";
+            streakCount.style = "";
+
+            titleBadgeContainer.classList.add('hidden');
+
+            let bgColor = "";
+            let borderColor = "";
+            let textColor = "";
+
+            if (days >= 1 && days <= 30) {
+                bgColor = "rgba(255, 59, 48, 0.15)";
+                borderColor = "#FF3B30";
+                textColor = "#FF3B30";
+            } else if (days >= 31 && days <= 49) {
+                bgColor = "rgba(255, 45, 85, 0.15)";
+                borderColor = "#FF2D55";
+                textColor = "#FF2D55";
+            } else if (days === 50) {
+                bgColor = "rgba(255, 149, 0, 0.2)";
+                borderColor = "#FF9500";
+                textColor = "#FF9500";
+            } else if (days >= 51 && days <= 99) {
+                bgColor = "rgba(255, 204, 0, 0.15)";
+                borderColor = "#FFCC00";
+                textColor = "#FFCC00";
+            } else if (days === 100) {
+                bgColor = "rgba(52, 199, 89, 0.2)";
+                borderColor = "#34C759";
+                textColor = "#34C759";
+            } else if (days >= 101 && days <= 149) {
+                bgColor = "rgba(0, 128, 128, 0.2)";
+                borderColor = "#008080";
+                textColor = "#2dd4bf";
+            } else if (days === 150) {
+                bgColor = "rgba(50, 173, 230, 0.2)";
+                borderColor = "#32ADE6";
+                textColor = "#32ADE6";
+            } else if (days >= 151 && days <= 199) {
+                bgColor = "rgba(0, 122, 255, 0.2)";
+                borderColor = "#007AFF";
+                textColor = "#38bdf8";
+            } else if (days === 200) {
+                bgColor = "rgba(88, 86, 214, 0.2)";
+                borderColor = "#5856D6";
+                textColor = "#818cf8";
+            } else if (days >= 201 && days <= 249) {
+                bgColor = "rgba(175, 82, 222, 0.2)";
+                borderColor = "#AF52DE";
+                textColor = "#c084fc";
+            } else if (days >= 250 && days <= 299) {
+                bgColor = "rgba(212, 175, 55, 0.2)";
+                borderColor = "#D4AF37";
+                textColor = "#fef08a";
+                streakIcon.classList.add('gold-sparkle');
+            } else if (days >= 300 && days <= 349) {
+                bgColor = "rgba(255, 255, 255, 0.15)";
+                borderColor = "#FFFFFF";
+                textColor = "#FFFFFF";
+            } else if (days >= 350 && days <= 364) {
+                streakBadgeContainer.classList.add('gradient-350');
+                textColor = "#FFCC00";
+            } else if (days >= 365) {
+                streakBadgeContainer.classList.add('gradient-365');
+                textColor = "#FFCC00";
+            } else {
+                bgColor = "rgba(113, 113, 122, 0.1)";
+                borderColor = "#3f3f46";
+                textColor = "#71717a";
+            }
+
+            if (bgColor) {
+                streakBadgeContainer.style.backgroundColor = bgColor;
+                streakBadgeContainer.style.borderColor = borderColor;
+                streakIcon.style.color = textColor;
+                streakCount.style.color = textColor;
+            }
+
+            if (days >= 366) {
+                titleBadgeContainer.classList.remove('hidden');
+
+                if (days >= 366 && days <= 730) {
+                    badgeTitle.innerHTML = `<i class="fa-solid fa-bolt text-amber-400"></i> Pioneiro do Plasma`;
+                    badgeYearTag.textContent = "Ano 1";
+                    badgeSubtitle.textContent = '"A energia se estabilizou e agora corre pelas suas veias."';
+                } else if (days >= 731 && days <= 1095) {
+                    badgeTitle.innerHTML = `<i class="fa-solid fa-burst text-purple-400"></i> Guardião da Matéria Escura`;
+                    badgeYearTag.textContent = "Ano 2";
+                    badgeSubtitle.textContent = '"Sua constância é uma força gravitacional implacável."';
+                } else if (days >= 1096 && days <= 1360) {
+                    badgeTitle.innerHTML = `<i class="fa-solid fa-star text-yellow-300"></i> Arquiteto Cósmico`;
+                    badgeYearTag.textContent = "Ano 3";
+                    badgeSubtitle.textContent = '"O seu hábito brilha tanto que ilumina o próprio universo."';
+                } else if (days >= 1361 && days <= 1824) {
+                    badgeTitle.innerHTML = `<i class="fa-solid fa-flask-vial text-emerald-400"></i> Mestre da Antimatéria`;
+                    badgeYearTag.textContent = "Ano 4";
+                    badgeSubtitle.textContent = '"Você desafiou a física e quebrou todas as barreiras do impossível."';
+                } else if (days >= 1825) {
+                    badgeTitle.innerHTML = `<i class="fa-solid fa-hourglass-half text-amber-300"></i> Divindade Atemporal`;
+                    badgeYearTag.textContent = "Ano 5+";
+                    badgeSubtitle.textContent = '"O tempo se curva à sua disciplina. Você alcançou o topo imortal."';
+                }
+            }
+        }
+
+
+        function renderAll() {
+            renderHeaderAndScores();
+            renderHabitStats();
+            renderCalendar();
+            renderTasksForm();
+        }
+
+        function renderHeaderAndScores() {
+            const selDate = parseDateKey(state.selectedKey);
+            currentSelectedLabel.textContent = `${selDate.day} de ${MONTH_NAMES[selDate.month]} de ${selDate.year}`;
+
+            const daysStreak = calculateStreak();
+            streakCount.textContent = daysStreak;
+            applyStreakStyle(daysStreak);
+
+            // BARRAS DE PONTOS DIÁRIOS
+            const dailyPoints = calculateDailyPoints(state.selectedKey);
+            const dailyTarget = 10;
+            
+            if (dailyPoints > dailyTarget) {
+                const surplus = dailyPoints - dailyTarget;
+                dailyScoreText.textContent = `+${surplus} pts`;
+                dailyProgressBarInner.style.width = '100%';
+            } else {
+                dailyScoreText.textContent = `${dailyPoints}/${dailyTarget}`;
+                const pct = Math.min(100, Math.max(0, (dailyPoints / dailyTarget) * 100));
+                dailyProgressBarInner.style.width = `${pct}%`;
+            }
+
+            // BARRAS DE PONTOS MENSAIS
+            const { year, month } = parseDateKey(state.selectedKey);
+            const monthlyPoints = calculateMonthlyPoints(year, month);
+            const monthlyTarget = 50;
+
+            if (monthlyPoints > monthlyTarget) {
+                const surplus = monthlyPoints - monthlyTarget;
+                monthlyScoreText.textContent = `+${surplus} pts`;
+                monthlyProgressBarInner.style.width = '100%';
+            } else {
+                monthlyScoreText.textContent = `${monthlyPoints}/${monthlyTarget}`;
+                const pctM = Math.min(100, Math.max(0, (monthlyPoints / monthlyTarget) * 100));
+                monthlyProgressBarInner.style.width = `${pctM}%`;
+            }
+        }
+
+        function renderHabitStats() {
+            const selDate = parseDateKey(state.selectedKey);
+            let daysLivedInMonth = selDate.day;
+
+            daysLivedLabel.textContent = `${daysLivedInMonth} dias decorridos`;
+
+            let countTreino = 0;
+            let countLeitura = 0;
+            let countEstudo = 0;
+            let countVicio = 0;
+
+            const monthPrefix = `${selDate.year}-${String(selDate.month + 1).padStart(2, '0')}`;
+
+            for (let d = 1; d <= daysLivedInMonth; d++) {
+                const key = `${monthPrefix}-${String(d).padStart(2, '0')}`;
+                const rec = state.records[key];
+                if (rec && rec.isRecorded) {
+                    if (rec.treinou) countTreino++;
+                    if (rec.leu) countLeitura++;
+                    if (rec.estudou) countEstudo++;
+                    if (rec.viciou) countVicio++;
+                }
+            }
+
+            statTreino.textContent = `${countTreino}/${daysLivedInMonth}`;
+            statLeitura.textContent = `${countLeitura}/${daysLivedInMonth}`;
+            statEstudo.textContent = `${countEstudo}/${daysLivedInMonth}`;
+            statVicio.textContent = `${countVicio}/${daysLivedInMonth}`;
+        }
+
+        function renderCalendar() {
+            calendarMonthYear.textContent = `${MONTH_NAMES[state.viewMonth]} ${state.viewYear}`;
+            calendarGrid.innerHTML = '';
+
+            const firstDayOfMonth = new Date(state.viewYear, state.viewMonth, 1).getDay();
+            const daysInMonth = new Date(state.viewYear, state.viewMonth + 1, 0).getDate();
+
+            for (let i = 0; i < firstDayOfMonth; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.className = "h-11 rounded-lg bg-transparent";
+                calendarGrid.appendChild(emptyCell);
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayKey = formatDateKey(state.viewYear, state.viewMonth, day);
+                const dayButton = document.createElement('button');
+                dayButton.className = "h-11 rounded-xl flex flex-col items-center justify-center font-bold text-xs transition-all relative";
+
+                const isFuture = dayKey > state.todayKey;
+                const isSelected = dayKey === state.selectedKey;
+                const isToday = dayKey === state.todayKey;
+                const isRecorded = hasDayRecord(dayKey);
+
+                if (isFuture) {
+                    dayButton.style.backgroundColor = '#000000';
+                    dayButton.style.color = '#52525b';
+                    dayButton.classList.add('border', 'border-zinc-900');
+                } else if (!isRecorded) {
+                    dayButton.style.backgroundColor = '#2A2A30';
+                    dayButton.style.color = '#e5e7eb';
+                } else {
+                    const count = getCompletedTasksCount(dayKey);
+                    if (count === 0) {
+                        dayButton.style.backgroundColor = '#FF3B30';
+                        dayButton.style.color = '#ffffff';
+                    } else if (count === 1) {
+                        dayButton.style.backgroundColor = '#FF9500';
+                        dayButton.style.color = '#ffffff';
+                    } else if (count === 2) {
+                        dayButton.style.backgroundColor = '#FFCC00';
+                        dayButton.style.color = '#000000';
+                    } else if (count === 3) {
+                        dayButton.style.backgroundColor = '#34C759';
+                        dayButton.style.color = '#ffffff';
+                    } else if (count === 4) {
+                        dayButton.style.backgroundColor = '#007AFF';
+                        dayButton.style.color = '#ffffff';
+                    }
+                }
+
+                if (isSelected) {
+                    dayButton.classList.add('ring-2', 'ring-indigo-400', 'ring-offset-2', 'ring-offset-zinc-900', 'scale-105', 'z-10');
+                }
+
+                if (isToday) {
+                    const todayDot = document.createElement('span');
+                    todayDot.className = "w-1.5 h-1.5 rounded-full bg-white absolute top-1 right-1 shadow";
+                    dayButton.appendChild(todayDot);
+                }
+
+                const dayText = document.createElement('span');
+                dayText.textContent = day;
+                dayButton.appendChild(dayText);
+
+                dayButton.addEventListener('click', () => {
+                    state.selectedKey = dayKey;
+                    renderAll();
+                });
+
+                calendarGrid.appendChild(dayButton);
+            }
+        }
+
+        function renderTasksForm() {
+            const dateParts = parseDateKey(state.selectedKey);
+            selectedDateDisplay.textContent = `${String(dateParts.day).padStart(2, '0')}/${String(dateParts.month + 1).padStart(2, '0')}/${dateParts.year}`;
+
+            const isFuture = state.selectedKey > state.todayKey;
+            if (isFuture) {
+                futureDayBadge.classList.remove('hidden');
+            } else {
+                futureDayBadge.classList.add('hidden');
+            }
+
+            const data = getDayData(state.selectedKey) || {
+                treinou: false,
+                flexoes: 0,
+                barras: 0,
+                leu: false,
+                paginas: 0,
+                estudou: false,
+                estudoMin: 0,
+                viciou: false
+            };
+
+            checkTreino.checked = !!data.treinou;
+            numFlexoes.value = data.flexoes || '';
+            numBarras.value = data.barras || '';
+            toggleCollapsible(extraTreino, data.treinou || (data.flexoes > 0 || data.barras > 0));
+
+            checkLeitura.checked = !!data.leu;
+            numPaginas.value = data.paginas || '';
+            toggleCollapsible(extraLeitura, data.leu || data.paginas > 0);
+
+            checkEstudo.checked = !!data.estudou;
+            numEstudo.value = data.estudoMin || '';
+            toggleCollapsible(extraEstudo, data.estudou || data.estudoMin > 0);
+
+            checkVicio.checked = !!data.viciou;
+        }
+
+        function toggleCollapsible(element, show) {
+            if (show) {
+                element.classList.add('open');
+            } else {
+                element.classList.remove('open');
+            }
+        }
+
+
+        function setupEventListeners() {
+            prevMonthBtn.addEventListener('click', () => {
+                state.viewMonth--;
+                if (state.viewMonth < 0) {
+                    state.viewMonth = 11;
+                    state.viewYear--;
+                }
+                renderCalendar();
+            });
+
+            nextMonthBtn.addEventListener('click', () => {
+                state.viewMonth++;
+                if (state.viewMonth > 11) {
+                    state.viewMonth = 0;
+                    state.viewYear++;
+                }
+                renderCalendar();
+            });
+
+            // SALVAMENTO EM TEMPO REAL
+            function saveDayData() {
+                let flexVal = parseInt(numFlexoes.value, 10) || 0;
+                let barVal = parseInt(numBarras.value, 10) || 0;
+                let pagVal = parseInt(numPaginas.value, 10) || 0;
+                let estVal = parseInt(numEstudo.value, 10) || 0;
+
+                // Auto-ativar checkboxes se números positivos forem digitados
+                if (flexVal > 0 || barVal > 0) checkTreino.checked = true;
+                if (pagVal > 0) checkLeitura.checked = true;
+                if (estVal > 0) checkEstudo.checked = true;
+
+                // Se checkbox marcado sem número digitado, atribui a quantidade base para garantir a pontuação
+                if (checkTreino.checked && flexVal === 0 && barVal === 0) flexVal = 2;
+                if (checkLeitura.checked && pagVal === 0) pagVal = 10;
+                if (checkEstudo.checked && estVal === 0) estVal = 30;
+
+                const hasAnyCheck = checkTreino.checked || checkLeitura.checked || checkEstudo.checked || checkVicio.checked;
+                const hasAnyInput = flexVal > 0 || barVal > 0 || pagVal > 0 || estVal > 0;
+
+                if (!hasAnyCheck && !hasAnyInput) {
+                    if (state.records[state.selectedKey] && state.records[state.selectedKey].isRecorded) {
+                        state.records[state.selectedKey] = {
+                            treinou: false,
+                            flexoes: 0,
+                            barras: 0,
+                            leu: false,
+                            paginas: 0,
+                            estudou: false,
+                            estudoMin: 0,
+                            viciou: false,
+                            isRecorded: true
+                        };
+                    } else {
+                        delete state.records[state.selectedKey];
+                    }
+                } else {
+                    state.records[state.selectedKey] = {
+                        treinou: checkTreino.checked,
+                        flexoes: flexVal,
+                        barras: barVal,
+                        leu: checkLeitura.checked,
+                        paginas: pagVal,
+                        estudou: checkEstudo.checked,
+                        estudoMin: estVal,
+                        viciou: checkVicio.checked,
+                        isRecorded: true
+                    };
+                }
+
+                saveStorage();
+                renderAll();
+            }
+
+            // BOTÃO MARCAR NENHUMA TAREFA HOJE (VERMELHO)
+            btnZeroTasks.addEventListener('click', () => {
+                state.records[state.selectedKey] = {
+                    treinou: false,
+                    flexoes: 0,
+                    barras: 0,
+                    leu: false,
+                    paginas: 0,
+                    estudou: false,
+                    estudoMin: 0,
+                    viciou: false,
+                    isRecorded: true
+                };
+                saveStorage();
+                renderAll();
+            });
+
+            // BOTÃO RESETAR DIA (VOLTAR A CINZA)
+            btnClearDay.addEventListener('click', () => {
+                delete state.records[state.selectedKey];
+                saveStorage();
+                renderAll();
+            });
+
+            // TREINO
+            checkTreino.addEventListener('change', () => {
+                toggleCollapsible(extraTreino, checkTreino.checked);
+                saveDayData();
+            });
+            numFlexoes.addEventListener('input', saveDayData);
+            numBarras.addEventListener('input', saveDayData);
+
+            // LEITURA
+            checkLeitura.addEventListener('change', () => {
+                toggleCollapsible(extraLeitura, checkLeitura.checked);
+                saveDayData();
+            });
+            numPaginas.addEventListener('input', saveDayData);
+
+            // ESTUDO
+            checkEstudo.addEventListener('change', () => {
+                toggleCollapsible(extraEstudo, checkEstudo.checked);
+                saveDayData();
+            });
+            numEstudo.addEventListener('input', saveDayData);
+
+            // NÃO SE VICIOU
+            checkVicio.addEventListener('change', saveDayData);
+        }
+
+        window.onload = initApp;
+    </script>
+</body>
+</html>
